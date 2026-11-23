@@ -1,0 +1,37 @@
+name: Aylık yol verisi
+
+on:
+  schedule:
+    - cron: '23 3 2 * *'  # her ayın 2'si, 03:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: veri
+  cancel-in-progress: false
+
+jobs:
+  veri:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Araçları kur
+        run: sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+
+      - name: Seçim testleri
+        run: python3 -I build_speedlimits.py --selftest
+
+      - name: Veriyi üret
+        env:
+          SPEEDLIMITS_CACHE: ${{ runner.temp }}/osm
+          SPEEDLIMITS_OUT: ${{ runner.temp }}/out/speedlimits_tr.bin
+        run: ./build.sh
+
+      - name: Yayımla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./publish.sh "$RUNNER_TEMP/out/speedlimits_tr.bin"
